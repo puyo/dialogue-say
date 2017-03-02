@@ -1,0 +1,52 @@
+#!/usr/bin/env ruby
+# coding: utf-8
+
+# A script to read out dialogue such as that from:
+
+# https://newmatilda.com/2017/03/02/why-were-broken-helen-razer-in-conversation-with-chris-graham-on-her-new-book-the-helen-100/
+
+input = ARGV.shift == '-f' ? ARGF : `pbpaste`
+voices = `say -v ? | grep en_ | cut -d " " -f 1`.strip.lines.map(&:chomp)
+voice_assignments = {}
+
+current_voice = nil
+is_new = false
+
+def say(str, name, voice)
+  if name
+    print "#{name} (#{voice}): "
+  else
+    print "(#{voice}): "
+  end
+  puts str
+  system('say', '-v', voice, str)
+end
+
+current_voice = voices.sample
+
+input.each_line do |line|
+  next if line =~ /^\s+$/
+
+  m = line.match(/^\n?([^:]{1,20}): (.*)/)
+  if m
+    name = m.captures.first
+    if !voice_assignments.key?(name)
+      found_name = voice_assignments.keys.find { |k| k.start_with?(name) }
+      name = found_name if found_name
+    end
+    is_new = !voice_assignments.key?(name)
+    current_voice = voice_assignments[name] ||= voices.delete_at(rand(voices.size))
+    line = m.captures.last
+  end
+
+  if name && is_new
+    say("My name is #{name}", name, current_voice)
+  end
+
+  if current_voice
+    say(line, name, current_voice)
+  end
+
+  is_new = false
+  puts
+end
